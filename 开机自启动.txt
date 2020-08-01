@@ -1,0 +1,4 @@
+start "" "D:\软件安装位置\QQ\Bin\QQScLauncher.exe" & ping localhost -n 3
+start "" "D:\软件安装位置\WeChat\WeChat.exe" & ping localhost -n 3
+start "" "D:\软件安装位置\DingDing\DingtalkLauncher.exe" & ping localhost -n 3
+start "" "D:\软件安装位置\YoudaoNote\YoudaoNote.exe" & ping localhost -n 3

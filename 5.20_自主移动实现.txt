@@ -1,0 +1,790 @@
+
+
+//5.20  重要   小车自主移动实现
+//  旋转车头，改变方向向量，轮子跟着旋转 ，算是完成
+
+#include <glad/glad.h>
+#include <GLFW/glfw3.h>
+
+#include <gl/glut.h>
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
+
+#include <learnopengl/filesystem.h>
+#include <learnopengl/shader_m.h>
+#include <learnopengl/camera.h>
+#include <learnopengl/model.h>
+
+#include <iostream>
+
+void framebuffer_size_callback(GLFWwindow* window, int width, int height);
+void mouse_callback(GLFWwindow* window, double xpos, double ypos);
+void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
+void processInput(GLFWwindow *window);
+void judge_move();
+void judge_turn();
+void key_callback(GLFWwindow* window, int key, int scancode, int action, int mode);
+
+void jude_viewlock();
+void do_movement();
+
+
+//------------------------------------       camera自定义
+//void mouse_callback(GLFWwindow* window, double xpos, double ypos);
+float yaw = -90.0f;
+float pitch = 0.0f;
+
+glm::vec3 cameraPos = glm::vec3(30.0f, 30.0f, 30.0f);  //摄像机位置
+glm::vec3 cameraFront = glm::vec3(15.0f, 0.0f, 15.0f)- glm::vec3(30.0f, 30.0f, 30.0f);//摄像机视线方向
+glm::vec3 cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
+float viewlocker = 0.0f;
+
+glm::vec3 cameraFront_now = cameraFront;
+
+//glm::mat4 view = view = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
+//------------------------------------
+
+
+
+// settings    设置窗口宽高
+const unsigned int SCR_WIDTH = 1000;
+const unsigned int SCR_HEIGHT = 800;
+
+// camera         
+Camera camera(glm::vec3(0.0f, 20.0f, 20.0f));
+float lastX = SCR_WIDTH / 2.0f;
+float lastY = SCR_HEIGHT / 2.0f;
+float fov = 45.0f;
+//float lastX = SCR_WIDTH;
+//float lastY = SCR_HEIGHT;
+bool firstMouse = true;
+
+// timing
+float deltaTime = 0.0f;
+float lastFrame = 0.0f;
+
+//给定模型初始位置向量
+glm::vec3 model_pos = glm::vec3(0.0f, 0.0f, 0.0f); //车体
+glm::vec3 model_pos_1 = glm::vec3(2.9f, 0.35f, 1.0f);
+glm::vec3 model_pos_2 = glm::vec3(-1.75f, 0.25f, 0.0f);
+glm::vec3 model_pos_3 = glm::vec3(2.9f, 0.35f, -0.25f);
+
+glm::vec3 model_pos_4 = glm::vec3(15.0f, 0.0f, 15.0f);//定位器
+glm::vec3 arrive_1= glm::vec3(0.0f, 0.0f, 15.0f);
+glm::vec3 arrive_2 = glm::vec3(15.0f, 0.0f, 15.0f);
+bool have_arrive_1 = false;
+bool have_arrive_2 = false;
+glm::vec3 move_direction_1 = arrive_1 - model_pos;
+glm::vec3 move_direction_2 = arrive_2 - arrive_1;
+float cos_angle_1 ; 
+float cos_angle_2;
+float sin_angle_1;
+float sin_angle_2;
+glm::mat3 mat_move_1=glm::mat3(1.0f);
+glm::mat3 mat_move_2 = glm::mat3(1.0f);
+bool keys[1024];
+
+/*float  angle = 0.0f;
+GLfloat movespeed = 5.0f;
+GLfloat velocity = movespeed * deltaTime;
+glm::vec3 front = glm::vec3(0.0f, 0.0f, -1.0f);
+
+
+glm::vec3 left_turn = glm::vec3(-1.0f, 0.0f, 0.0f);
+
+glm::mat3 m1(cos(glm::radians(angle)), 0.0, sin(glm::radians(angle)),
+0.0, 1.0, 0.0,
+-sin(glm::radians(angle)), 0.0f, cos(glm::radians(angle))
+);*/
+
+float  angle = 0.0f;
+GLfloat movespeed = 5.0f;
+GLfloat velocity;
+glm::vec3 left_turn = glm::vec3(1.0f, 0.0f, 0.0f);
+glm::mat3 matrix_1;
+
+
+//model_pos_INI     model_pos_initial
+glm::vec3 model_pos_INI = glm::vec3(0.0f, 0.0f, 0.0f);
+glm::vec3 model_pos_1_INI = glm::vec3(2.9f, 0.35f, 1.0f);
+glm::vec3 model_pos_2_INI = glm::vec3(-1.75f, 0.25f, 0.0f);
+glm::vec3 model_pos_3_INI = glm::vec3(2.9f, 0.35f, -0.25f);
+glm::vec3 model_pos_INI_2 = glm::vec3(0.0f, 0.0f, 0.0f);
+glm::vec3 model_pos_1_INI_2 = glm::vec3(2.9f, 0.35f, 1.0f);
+glm::vec3 model_pos_2_INI_2 = glm::vec3(-1.75f, 0.25f, 0.0f);
+glm::vec3 model_pos_3_INI_2 = glm::vec3(2.9f, 0.35f, -0.25f);
+
+glm::vec3 model_pos_4_INI = glm::vec3(10.0f, 0.0f, 10.0f);
+glm::vec3 length = model_pos;  //设定长度向量  INI向量+长度向量=旋转中新位置向量
+
+int boom=1;
+
+int main()
+{
+
+
+
+	// glfw: initialize and configure
+	// ------------------------------
+	glfwInit();
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+
+#ifdef __APPLE__
+	glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE); // uncomment this statement to fix compilation on OS X
+#endif
+
+														 // glfw window creation
+														 // --------------------
+	GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "LearnOpenGL", NULL, NULL);
+	if (window == NULL)
+	{
+		std::cout << "Failed to create GLFW window" << std::endl;
+		glfwTerminate();
+		return -1;
+	}
+	glfwMakeContextCurrent(window);
+	glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
+	//-------------------------------
+	
+	
+	glfwSetCursorPosCallback(window, mouse_callback);
+	
+	
+	//----------------------------
+
+	
+	glfwSetScrollCallback(window, scroll_callback);
+
+	// tell GLFW to capture our mouse
+	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+
+	//键盘捕捉
+	glfwSetKeyCallback(window, key_callback);
+
+	// glad: load all OpenGL function pointers
+	// ---------------------------------------
+	if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
+	{
+		std::cout << "Failed to initialize GLAD" << std::endl;
+		return -1;
+	}
+
+	// configure global opengl state
+	// -----------------------------
+	glEnable(GL_DEPTH_TEST);
+
+	// build and compile shaders
+	// -------------------------
+	Shader ourShader("1.model_loading.vs", "1.model_loading.fs");
+	Shader ourShader_1("1.model_loading.vs", "1.model_loading.fs");
+	Shader ourShader_2("1.model_loading.vs", "1.model_loading.fs");
+	Shader ourShader_3("1.model_loading.vs", "1.model_loading.fs");
+	Shader ourShader_4("1.model_loading.vs", "1.model_loading.fs");
+
+	// load models
+	// -----------
+	Model ourModel(FileSystem::getPath("resources/objects/van/van_cheti.obj"));
+	Model ourModel_1(FileSystem::getPath("resources/objects/van/van_qianlun_R.obj"));
+	Model ourModel_2(FileSystem::getPath("resources/objects/van/van_houlun.obj"));
+	Model ourModel_3(FileSystem::getPath("resources/objects/van/van_qianlun_L.obj"));
+	Model ourModel_4(FileSystem::getPath("resources/objects/van/agvcheti.obj"));
+
+	// draw in wireframe
+	//glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+
+	//计算指定arrive点的向量与leftturn的夹角，使车体轮子旋转对应角度
+	cos_angle_1 = (move_direction_1.x*left_turn.x + move_direction_1.y*left_turn.y + move_direction_1.z*left_turn.z) / abs((sqrt(pow(move_direction_1.x, 2) + pow(move_direction_1.y, 2) + pow(move_direction_1.z, 2))*sqrt(pow(left_turn.x, 2) + pow(left_turn.y, 2) + pow(left_turn.z, 2))));
+	cos_angle_1 = abs(cos_angle_1);
+	sin_angle_1 = abs(sqrt(1 - pow(cos_angle_1, 2)));
+
+	cos_angle_2 = (move_direction_2.x*left_turn.x + move_direction_2.y*left_turn.y + move_direction_2.z*left_turn.z) / abs((sqrt(pow(move_direction_2.x, 2) + pow(move_direction_2.y, 2) + pow(move_direction_2.z, 2))*sqrt(pow(left_turn.x, 2) + pow(left_turn.y, 2) + pow(left_turn.z, 2))));
+	cos_angle_2 = abs(cos_angle_2);
+	sin_angle_2 = abs(sqrt(1 - pow(cos_angle_2, 2)));
+	//绕Y轴旋转矩阵
+	mat_move_1 = glm::mat3(cos_angle_1, 0.0, sin_angle_1,
+	0.0, 1.0, 0.0,
+	-sin_angle_1, 0.0f, cos_angle_1
+	);
+	mat_move_2 = glm::mat3(cos_angle_2, 0.0, sin_angle_2,
+		0.0, 1.0, 0.0,
+		-sin_angle_2, 0.0f, cos_angle_2
+	);
+
+	model_pos_INI = mat_move_1*model_pos_INI; 
+	model_pos_1_INI = mat_move_1*model_pos_1_INI; 
+	model_pos_2_INI = mat_move_1*model_pos_2_INI; 
+	model_pos_3_INI = mat_move_1*model_pos_3_INI; 
+	model_pos_INI_2 = -mat_move_2*model_pos_INI_2;
+	model_pos_1_INI_2 = -mat_move_2*model_pos_1_INI_2;
+	model_pos_2_INI_2 = -mat_move_2*model_pos_2_INI_2;
+	model_pos_3_INI_2 = -mat_move_2*model_pos_3_INI_2;
+
+	// render loop
+	// -----------
+	while (!glfwWindowShouldClose(window))
+	{
+		// per-frame time logic
+		// --------------------
+		float currentFrame = glfwGetTime();
+		deltaTime = currentFrame - lastFrame;
+		lastFrame = currentFrame;
+
+		velocity = movespeed * deltaTime;
+
+		matrix_1 = glm::mat3(cos(glm::radians(angle)), 0.0, sin(glm::radians(angle)),
+			0.0, 1.0, 0.0,
+			-sin(glm::radians(angle)), 0.0f, cos(glm::radians(angle))
+		);
+
+		// render
+		// ------
+		glClearColor(0.3f, 0.5f, 1.0f, 1.0f);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+		// don't forget to enable shader before setting uniforms
+		ourShader.use();
+		ourShader_1.use();
+		ourShader_2.use();
+		ourShader_3.use();
+
+		//给定光照
+		ourShader.setVec3("viewPos", camera.Position);
+		ourShader.setFloat("shininess", 64.0f);
+		ourShader.setVec3("light.position", glm::vec3(0.0f, 5.0f, 0.0f));
+		ourShader.setVec3("light.ambient", 0.5f, 0.5f, 0.5f);
+		ourShader.setVec3("light.diffuse", 0.8f, 0.8f, 0.8f);
+		ourShader.setVec3("light.specular", 1.0f, 1.0f, 1.0f);
+		ourShader.setFloat("light.constant", 1.0f);
+		ourShader.setFloat("light.linear", 0.045f);
+		ourShader.setFloat("light.quadratic", 0.0075f);
+
+		GLfloat sun_light_position[] = { 10.0f, 10.0f, 10.0f, 1.0f }; //光源的位置在世界坐标系圆心，齐次坐标形式
+		GLfloat sun_light_ambient[] = { 1.0f, 1.0f, 1.0f, 1.0f }; //RGBA模式的环境光，为0
+		GLfloat sun_light_diffuse[] = { 1.0f, 1.0f, 1.0f, 1.0f }; //RGBA模式的漫反射光，全白光
+		GLfloat sun_light_specular[] = { 1.0f, 1.0f, 1.0f, 1.0f };  //RGBA模式下的镜面光 ，全白光
+		glLightfv(GL_LIGHT0, GL_POSITION, sun_light_position);
+		glLightfv(GL_LIGHT0, GL_AMBIENT, sun_light_ambient);
+		glLightfv(GL_LIGHT0, GL_DIFFUSE, sun_light_diffuse);
+		glLightfv(GL_LIGHT0, GL_SPECULAR, sun_light_specular);
+
+		//开启灯光
+		glEnable(GL_LIGHT0);
+		glEnable(GL_LIGHTING);
+		glEnable(GL_DEPTH_TEST);
+
+		//视角锁定
+	    jude_viewlock();
+
+		//世界空间变换矩阵初始化
+		glm::mat4 model = glm::mat4(1.0f);
+		glm::mat4 model_1 = glm::mat4(1.0f);
+		glm::mat4 model_2 = glm::mat4(1.0f);
+		glm::mat4 model_3 = glm::mat4(1.0f);
+		glm::mat4 model_4 = glm::mat4(1.0f);
+
+		// view/projection transformations  观察空间   +视角锁定
+		//------------------------------------------------------
+		//视角锁定 Version2.0
+		/*if (viewlocker == 1.0)
+		{
+			glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
+			glm::mat4 view = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
+			ourShader.setMat4("projection", projection);
+			ourShader.setMat4("view", view);//view 观察矩阵
+		}
+		if (viewlocker==0.0)
+		{
+			glm::vec3 cameraPos_lock = glm::vec3(30.0f, 30.0f, 30.0f);  //摄像机位置
+			glm::vec3 cameraFront_lock = glm::vec3(-1.0f, -1.0f, -1.0f);//摄像机视线方向
+			glm::vec3 cameraUp_lock = glm::vec3(0.0f, 1.0f, 0.0f);
+			glm::mat4 projection_lock = glm::perspective(glm::radians(camera.Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
+			glm::mat4 view_lock = glm::lookAt(cameraPos_lock, cameraPos_lock + cameraFront_lock, cameraUp_lock);
+			ourShader.setMat4("projection", projection_lock);
+			ourShader.setMat4("view", view_lock);//view 观察矩阵
+		}*/
+
+		glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
+		glm::mat4 view = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
+		ourShader.setMat4("projection", projection);
+		ourShader.setMat4("view", view);//view 观察矩阵
+
+		// render the loaded model
+
+		judge_move();  //执行前进，计算更新位置向量model_pos_
+		judge_turn();  //执行旋转，计算更新位置向量model_pos_
+
+
+		if (!have_arrive_1 || !have_arrive_2)
+		{
+			do_movement();
+		}
+
+		//---------------------------------------------
+	
+		
+			if (!have_arrive_1 && !have_arrive_2)
+			{
+				 model_pos = model_pos_INI + length;
+				 model_pos_1 = model_pos_1_INI + length;  //model_pos_initial  在原点的位置
+				 model_pos_2 = model_pos_2_INI + length;
+				 model_pos_3 = model_pos_3_INI + length;
+			}
+		
+			if (have_arrive_1 && !have_arrive_2)
+			{
+				 model_pos = model_pos_INI_2 + length;
+				 model_pos_1 = model_pos_1_INI_2 + length;  //model_pos_initial  在原点的位置
+				 model_pos_2 = model_pos_2_INI_2 + length;
+				 model_pos_3 = model_pos_3_INI_2 + length;
+			}
+
+
+
+
+
+		//---------------------------------------------
+		
+		model = glm::translate(model, model_pos); //定义模型每个循环出现的位置
+		model = glm::scale(model, glm::vec3(0.05f, 0.05f, 0.05f));	// it's a bit too big for our scene, so scale it down
+		model = glm::rotate(model, glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+		model = glm::rotate(model, glm::radians(angle), glm::vec3(0.0f, 1.0f, 0.0f));//每一帧都要从新旋转一遍
+		if (!have_arrive_2)
+		{
+			if (!have_arrive_1)
+				model = glm::rotate(model, -acos(cos_angle_1), glm::vec3(0.0f, 1.0f, 0.0f));//每一帧都要从新旋转一遍
+			if(have_arrive_1)
+				model = glm::rotate(model, acos(cos_angle_2), glm::vec3(0.0f, 1.0f, 0.0f));//每一帧都要从新旋转一遍
+		}
+		ourShader.setMat4("model", model);
+		ourModel.Draw(ourShader);
+
+		//自动路径规划
+		
+
+		//前轮右
+		// render the loaded model
+		model_1 = glm::translate(model_1, model_pos_1); //定义模型每个循环出现的位置
+		model_1 = glm::scale(model_1, glm::vec3(0.05f, 0.05f, 0.05f));	// it's a bit too big for our scene, so scale it down
+		model_1 = glm::rotate(model_1, glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+
+		model_1 = glm::rotate(model_1, glm::radians(angle), glm::vec3(0.0f, 1.0f, 0.0f));
+
+		if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
+		{
+			model_1 = glm::rotate(model_1, 10 * (float)glfwGetTime(), glm::vec3(1.0f, 0.0f, 0.0f));  //轮子旋转
+		}
+
+		if (!have_arrive_2)
+		{
+			if (!have_arrive_1)
+				model_1 = glm::rotate(model_1, -acos(cos_angle_1), glm::vec3(0.0f, 1.0f, 0.0f));//每一帧都要从新旋转一遍
+			if (have_arrive_1)
+				model = glm::rotate(model, acos(cos_angle_2), glm::vec3(0.0f, 1.0f, 0.0f));//每一帧都要从新旋转一遍
+		}
+
+		ourShader_1.setMat4("model", model_1);
+		ourModel_1.Draw(ourShader_1); 
+
+
+		// 后轮
+		// render the loaded model
+		model_2 = glm::translate(model_2, model_pos_2); //定义模型每个循环出现的位置
+		model_2 = glm::scale(model_2, glm::vec3(0.05f, 0.05f, 0.05f));	// it's a bit too big for our scene, so scale it down
+		model_2 = glm::rotate(model_2, glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+
+		model_2 = glm::rotate(model_2, glm::radians(angle), glm::vec3(0.0f, 1.0f, 0.0f));
+
+		if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
+		{
+			model_2 = glm::rotate(model_2, 10 * (float)glfwGetTime(), glm::vec3(1.0f, 0.0f, 0.0f));
+		}
+
+
+		if (!have_arrive_2)
+		{
+			if (!have_arrive_1)
+				model_2 = glm::rotate(model_2, -acos(cos_angle_1), glm::vec3(0.0f, 1.0f, 0.0f));//每一帧都要从新旋转一遍
+			if (have_arrive_1)
+				model_2 = glm::rotate(model_2, acos(cos_angle_2), glm::vec3(0.0f, 1.0f, 0.0f));//每一帧都要从新旋转一遍
+		}
+		ourShader_2.setMat4("model", model_2);
+		ourModel_2.Draw(ourShader_2);
+
+
+		// 前轮左
+		// render the loaded model
+
+
+		model_3 = glm::translate(model_3, model_pos_3); //定义模型每个循环出现的位置
+		model_3 = glm::scale(model_3, glm::vec3(0.05f, 0.05f, 0.05f));	// it's a bit too big for our scene, so scale it down
+		model_3 = glm::rotate(model_3, glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+
+		model_3 = glm::rotate(model_3, glm::radians(angle), glm::vec3(0.0f, 1.0f, 0.0f));
+
+		if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
+		{
+			model_3 = glm::rotate(model_3, 10 * (float)glfwGetTime(), glm::vec3(1.0f, 0.0f, 0.0f));
+		}
+
+		if (!have_arrive_2)
+		{
+			if (!have_arrive_1)
+				model_3 = glm::rotate(model_3, -acos(cos_angle_1), glm::vec3(0.0f, 1.0f, 0.0f));//每一帧都要从新旋转一遍
+			if (have_arrive_1)
+				model_3 = glm::rotate(model_3, acos(cos_angle_2), glm::vec3(0.0f, 1.0f, 0.0f));//每一帧都要从新旋转一遍
+		}
+
+
+		ourShader_3.setMat4("model", model_3);
+		ourModel_3.Draw(ourShader_3);
+
+
+		//定位器底座
+		model_4 = glm::translate(model_4, model_pos_4); //定义模型每个循环出现的位置
+		model_4 = glm::scale(model_4, glm::vec3(0.05f, 0.05f, 0.05f));	// it's a bit too big for our scene, so scale it down
+		ourShader_4.setMat4("model", model_4);
+		ourModel_4.Draw(ourShader_4);
+
+
+		/*if (have_arrive_1 && !have_arrive_2)
+		{
+			glm::mat3 mat_single = glm::mat3(1.0f);
+			 model_pos = model_pos_INI + length;
+			 model_pos_1 = model_pos_1_INI + length;  //model_pos_initial  在原点的位置
+			 model_pos_2 = model_pos_2_INI + length;
+			 model_pos_3 = model_pos_3_INI + length;
+		}*/
+		
+		// 按键input
+		// -----------------------------------------------------------------------
+
+		processInput(window);
+
+
+		// glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
+		// -------------------------------------------------------------------------------
+		glfwSwapBuffers(window);
+		glfwPollEvents();
+	}
+
+	// glfw: terminate, clearing all previously allocated GLFW resources.
+	// ------------------------------------------------------------------
+	glfwTerminate();
+	return 0;
+}
+
+// process all input: query GLFW whether relevant keys are pressed/released this frame and react accordingly
+// ---------------------------------------------------------------------------------------------------------
+/*void processInput(GLFWwindow *window)
+{
+if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
+glfwSetWindowShouldClose(window, true);
+
+if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
+camera.ProcessKeyboard(, deltaTime);
+if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
+camera.ProcessKeyboard(BACKWARD, deltaTime);
+if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
+camera.ProcessKeyboard(LEFT, deltaTime);
+if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
+camera.ProcessKeyboard(RIGHT, deltaTime);
+}*/
+
+/*void jude_move(GLFWwindow* window)
+{
+if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
+{
+model_pos += velocity*left_turn;
+model_pos_1 += velocity*left_turn;
+model_pos_2 += velocity*left_turn;
+model_pos_3 += velocity*left_turn;
+}
+if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
+{
+model_pos -= velocity*left_turn;
+model_pos_1 -= velocity*left_turn;
+model_pos_2 -= velocity*left_turn;
+model_pos_3 -= velocity*left_turn;
+}
+
+}*/
+
+void judge_move()
+{
+	//前进后退计算更新位置向量
+	if (keys[GLFW_KEY_A])
+	{
+		model_pos += velocity*left_turn;
+		model_pos_1 += velocity*left_turn;
+		model_pos_2 += velocity*left_turn;
+		model_pos_3 += velocity*left_turn;
+
+		length = model_pos;//车体中心位置向量变化，length随之更新
+
+	}
+	if (keys[GLFW_KEY_D])
+	{
+		model_pos -= velocity*left_turn;
+		model_pos_1 -= velocity*left_turn;
+		model_pos_2 -= velocity*left_turn;
+		model_pos_3 -= velocity*left_turn;
+
+		length = model_pos;
+
+	}
+}
+
+
+
+void  judge_turn()
+{
+
+	float a = 0.5f;//按键一次变化的角度
+	glm::mat3 matrix_left;//绕Y轴的旋转矩阵  逆时针 
+	glm::mat3 matrix_right;////绕Y轴的旋转矩阵  顺时针 
+
+
+
+	if (keys[GLFW_KEY_W])
+	{
+		angle = angle + a;//更新需要从头旋转的角度  ->rotate()
+
+						  //绕Y轴旋转矩阵
+		matrix_left = glm::mat3(cos(glm::radians(-a)), 0.0, sin(glm::radians(-a)),
+			0.0, 1.0, 0.0,
+			-sin(glm::radians(-a)), 0.0f, cos(glm::radians(-a))
+		);
+		left_turn = matrix_left*left_turn;  //每次旋转更新方向向量
+
+	 /*model_pos_1 = matrix_left*model_pos_1;
+	 model_pos_2 = matrix_left*model_pos_2;
+	 model_pos_3 = matrix_left*model_pos_3;*/
+
+
+	   //将放在原点处的车整体旋转，再移动到实际位置
+		model_pos_INI = matrix_left*model_pos_INI;     model_pos = model_pos_INI + length;
+		model_pos_1_INI = matrix_left*model_pos_1_INI; model_pos_1 = model_pos_1_INI + length;
+		model_pos_2_INI = matrix_left*model_pos_2_INI; model_pos_2 = model_pos_2_INI + length;
+		model_pos_3_INI = matrix_left*model_pos_3_INI; model_pos_3 = model_pos_3_INI + length;
+	}
+	if (keys[GLFW_KEY_S])
+	{
+		angle = angle - a;
+		matrix_right = glm::mat3(cos(glm::radians(a)), 0.0, sin(glm::radians(a)),
+			0.0, 1.0, 0.0,
+			-sin(glm::radians(a)), 0.0f, cos(glm::radians(a))
+		);
+		left_turn = matrix_right*left_turn;
+		//model_pos = matrix_right*model_pos;
+		model_pos_INI = matrix_right*model_pos_INI; model_pos = model_pos_INI + length;
+		model_pos_1_INI = matrix_right*model_pos_1_INI; model_pos_1 = model_pos_1_INI + length;  //model_pos_initial  在原点的位置
+		model_pos_2_INI = matrix_right*model_pos_2_INI; model_pos_2 = model_pos_2_INI + length;
+		model_pos_3_INI = matrix_right*model_pos_3_INI; model_pos_3 = model_pos_3_INI + length;
+
+
+	}
+
+}
+
+
+void processInput(GLFWwindow* window)
+{
+	//float  angle = 0.0f;
+
+	glm::vec3 front = glm::vec3(0.0f, 0.0f, -1.0f);
+	//glm::vec3 left_turn = glm::vec3(-1.0f, 0.0f, 0.0f);
+
+
+	float cameraSpeed = 2.5f * deltaTime;
+	//float cameraSpeed = 0.05f; // adjust accordingly
+	if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS)
+	cameraPos += cameraSpeed * cameraFront;
+	if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS)
+	cameraPos -= cameraSpeed * cameraFront;
+	if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS)
+	cameraPos -= glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
+	if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS)
+	cameraPos += glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
+
+	if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
+		glfwSetWindowShouldClose(window, true);
+}
+
+
+
+
+
+
+// glfw: whenever the window size changed (by OS or user resize) this callback function executes
+// ---------------------------------------------------------------------------------------------
+void framebuffer_size_callback(GLFWwindow* window, int width, int height)
+{
+	// make sure the viewport matches the new window dimensions; note that width and 
+	// height will be significantly larger than specified on retina displays.
+	glViewport(0, 0, width, height);
+}
+
+// glfw: whenever the mouse moves, this callback is called
+// -------------------------------------------------------
+/*void mouse_callback(GLFWwindow* window, double xpos, double ypos)
+{
+if (firstMouse)
+{
+lastX = xpos;
+lastY = ypos;
+firstMouse = false;
+}
+
+float xoffset = xpos - lastX;
+float yoffset = lastY - ypos; // reversed since y-coordinates go from bottom to top
+
+lastX = xpos;
+lastY = ypos;
+
+camera.ProcessMouseMovement(xoffset, yoffset);
+}*/
+
+// glfw: whenever the mouse scroll wheel scrolls, this callback is called
+// ----------------------------------------------------------------------
+void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
+{
+	if (fov >= 1.0f && fov <= 45.0f)
+		fov -= yoffset;
+	if (fov <= 1.0f)
+		fov = 1.0f;
+	if (fov >= 45.0f)
+		fov = 45.0f;
+}
+
+void key_callback(GLFWwindow* window, int key, int scancode, int action, int mode)
+{
+	if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
+		glfwSetWindowShouldClose(window, GL_TRUE);
+	if (key >= 0 && key < 1024)
+	{
+		//设置按下/释放键为true或false
+		if (action == GLFW_PRESS)
+			keys[key] = true;
+		else if (action == GLFW_RELEASE)
+			keys[key] = false;
+	}
+
+}
+
+
+void mouse_callback(GLFWwindow* window, double xpos, double ypos)
+{  
+	
+	
+		if (firstMouse)
+		{
+			lastX = xpos;
+			lastY = ypos;
+			firstMouse = false;
+		}
+
+		float xoffset = xpos - lastX;
+		float yoffset = lastY - ypos;
+		lastX = xpos;
+		lastY = ypos;
+
+		float sensitivity = 0.1;
+		xoffset *= sensitivity;
+		yoffset *= sensitivity;
+
+		yaw += xoffset;
+		pitch += yoffset;
+
+		if (pitch > 89.0f)
+			pitch = 89.0f;
+		if (pitch < -89.0f)
+			pitch = -89.0f;
+
+		glm::vec3 front;
+		front.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
+		front.y = sin(glm::radians(pitch));
+		front.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
+
+		//--------------------------------------------
+		//视角锁定 Version1.0
+		if (viewlocker==1.0)
+		{
+			cameraFront = glm::normalize(front);
+			cameraFront_now = cameraFront;
+		}
+		if (viewlocker==0.0)
+		{
+			cameraFront = cameraFront_now;//摄像机视线方向
+			//cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
+			
+		}
+	
+}
+
+void jude_viewlock()
+{
+	if (keys[GLFW_KEY_X])//X 视角解锁
+	{
+		viewlocker = 1.0;
+	}
+	if (keys[GLFW_KEY_C])//C  视角锁定
+	{
+		viewlocker = 0.0;
+	}
+}
+
+void do_movement()
+{
+
+
+	if (!have_arrive_1 && !have_arrive_2)
+	{   
+		model_pos += velocity*move_direction_1*0.05f;
+		model_pos_1 += 0.05f*velocity*move_direction_1;
+		model_pos_2 += 0.05f*velocity*move_direction_1;
+		model_pos_3 += 0.05f*velocity*move_direction_1;
+		if (abs(model_pos.z - arrive_1.z)<0.3f)
+			have_arrive_1 = true;
+
+		if (abs(model_pos.x - arrive_2.x)<0.3f)
+			have_arrive_2 = true;
+	}
+	if (have_arrive_1 && !have_arrive_2)
+	{
+		/*if (boom)
+		{
+			model_pos_INI = -mat_move_2*model_pos_INI; 
+			model_pos_1_INI = -mat_move_2*model_pos_1_INI; 
+			model_pos_2_INI = -mat_move_2*model_pos_2_INI; 
+			model_pos_3_INI = -mat_move_2*model_pos_3_INI; 
+		}
+		boom = 0;*/
+		model_pos += velocity*move_direction_2*0.1f;
+		model_pos_1 += 0.1f*velocity*move_direction_2;
+		model_pos_2 += 0.1f*velocity*move_direction_2;
+		model_pos_3 += 0.1f*velocity*move_direction_2;
+		have_arrive_1 = true;
+		if (abs(model_pos.x - arrive_2.x)<0.3f)
+			have_arrive_2 = true;
+	}
+	if (have_arrive_1 && have_arrive_2)
+	{
+		have_arrive_1 = true;
+		have_arrive_2 = true;
+		model_pos += 0;
+		model_pos_1 += 0;
+		model_pos_2 += 0;
+		model_pos_3 += 0;
+		 model_pos_INI = glm::vec3(0.0f, 0.0f, 0.0f);
+		 model_pos_1_INI = glm::vec3(2.9f, 0.35f, 1.0f);
+		 model_pos_2_INI = glm::vec3(-1.75f, 0.25f, 0.0f);
+		 model_pos_3_INI = glm::vec3(2.9f, 0.35f, -0.25f);
+	}
+
+	length = model_pos - glm::vec3(0.0f, 0.0f, 0.0f);
+
+
+}

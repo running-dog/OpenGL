@@ -1,0 +1,952 @@
+2020-07-16 15:04:19
+//7.16   定位器同步移动实现   可切换定位器个数
+
+#include <glad/glad.h>        
+#include <GLFW/glfw3.h>
+
+#include <gl/glut.h>
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
+
+#include <learnopengl/filesystem.h>
+#include <learnopengl/shader_m.h>
+#include <learnopengl/camera.h>
+#include <learnopengl/model.h>
+
+#include <iostream>
+
+void framebuffer_size_callback(GLFWwindow* window, int width, int height);
+void mouse_callback(GLFWwindow* window, double xpos, double ypos);
+void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
+void processInput(GLFWwindow *window);
+void judge_move();
+void key_callback(GLFWwindow* window, int key, int scancode, int action, int mode);
+void jude_viewlock();
+
+void do_movement();
+
+
+//------------------------------------       camera自定义
+//void mouse_callback(GLFWwindow* window, double xpos, double ypos);
+float yaw = -90.0f;
+float pitch = 0.0f;
+
+glm::vec3 cameraPos = glm::vec3(30.0f, 30.0f, 30.0f);  //摄像机位置
+glm::vec3 cameraFront = glm::vec3(15.0f, 0.0f, 15.0f) - glm::vec3(30.0f, 30.0f, 30.0f);//摄像机视线方向
+glm::vec3 cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
+float viewlocker = 0.0f;
+
+glm::vec3 cameraFront_now = cameraFront;
+
+//glm::mat4 view = view = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
+//------------------------------------
+
+
+
+// settings    设置窗口宽高
+const unsigned int SCR_WIDTH = 1000;
+const unsigned int SCR_HEIGHT = 800;
+
+// camera         
+Camera camera(glm::vec3(0.0f, 0.0f, 20.0f));
+float lastX = SCR_WIDTH / 2.0f;
+float lastY = SCR_HEIGHT / 2.0f;
+float fov = 45.0f;
+//float lastX = SCR_WIDTH;
+//float lastY = SCR_HEIGHT;
+bool firstMouse = true;
+
+// timing
+float deltaTime = 0.0f;
+float lastFrame = 0.0f;
+
+//给定模型初始位置向量
+glm::vec3 model_pos = glm::vec3(10.0f, 0.0f, 10.0f); //定位器底座
+glm::vec3 model_pos_1 = glm::vec3(10.0f, 0.0f, 10.0f);//X_1     
+glm::vec3 model_pos_2 = glm::vec3(10.0f, 0.0f, 10.0f);//Y_1   -->正常世界的空间坐标系的三个 方向
+glm::vec3 model_pos_3 = glm::vec3(10.0f, 0.0f, 10.0f);//Z_1
+
+glm::vec3 model_pos_4 = glm::vec3(20.0f, 0.0f, 10.0f); //定位器底座
+glm::vec3 model_pos_5 = glm::vec3(20.0f, 0.0f, 10.0f);//X_1     
+glm::vec3 model_pos_6 = glm::vec3(20.0f, 0.0f, 10.0f);//Y_1   -->正常世界的空间坐标系的三个 方向
+glm::vec3 model_pos_7 = glm::vec3(20.0f, 0.0f, 10.0f);//Z_1
+
+glm::vec3 model_pos_8 = glm::vec3(10.0f, 0.0f, 20.0f); //定位器底座
+glm::vec3 model_pos_9 = glm::vec3(10.0f, 0.0f, 20.0f);//X_1     
+glm::vec3 model_pos_10 = glm::vec3(10.0f, 0.0f, 20.0f);//Y_1   -->正常世界的空间坐标系的三个 方向
+glm::vec3 model_pos_11 = glm::vec3(10.0f, 0.0f, 20.0f);//Z_1
+
+glm::vec3 model_pos_12 = glm::vec3(20.0f, 0.0f, 20.0f); //定位器底座
+glm::vec3 model_pos_13 = glm::vec3(20.0f, 0.0f, 20.0f);//X_1     
+glm::vec3 model_pos_14 = glm::vec3(20.0f, 0.0f, 20.0f);//Y_1   -->正常世界的空间坐标系的三个 方向
+glm::vec3 model_pos_15 = glm::vec3(20.0f, 0.0f, 20.0f);//Z_1
+
+glm::vec3 model_pos_16 = glm::vec3(15.0f, 0.0f, 5.0f); //定位器底座
+glm::vec3 model_pos_17 = glm::vec3(15.0f, 0.0f, 5.0f);//X_1     
+glm::vec3 model_pos_18 = glm::vec3(15.0f, 0.0f, 5.0f);//Y_1   -->正常世界的空间坐标系的三个 方向
+glm::vec3 model_pos_19 = glm::vec3(15.0f, 0.0f, 5.0f);//Z_1
+
+glm::vec3 model_pos_20 = glm::vec3(15.0f, 0.0f, 25.0f); //定位器底座
+glm::vec3 model_pos_21 = glm::vec3(15.0f, 0.0f, 25.0f);//X_1     
+glm::vec3 model_pos_22 = glm::vec3(15.0f, 0.0f, 25.0f);//Y_1   -->正常世界的空间坐标系的三个 方向
+glm::vec3 model_pos_23 = glm::vec3(15.0f, 0.0f, 25.0f);//Z_1
+
+
+bool keys[1024];
+
+
+float  angle = 0.0f;
+GLfloat movespeed = 0.3f;   //指定移动速度
+GLfloat velocity;
+glm::vec3 x_direction = glm::vec3(1.0f, 0.0f, 0.0f);
+glm::vec3 z_direction = glm::vec3(0.0f, 0.0f, 1.0f);
+glm::vec3 y_direction = glm::vec3(0.0f, 1.0f, 0.0f);
+
+glm::vec3 x_direction_unchange = glm::vec3(1.0f, 0.0f, 0.0f);
+glm::vec3 z_direction_unchange = glm::vec3(0.0f, 0.0f, 1.0f);
+glm::vec3 y_direction_unchange = glm::vec3(0.0f, 1.0f, 0.0f);
+
+struct Point {
+	float x;
+	float y;
+	float z;
+};
+Point point[] = {
+
+	{ 16,1,16 },
+	{ 16,0,16 },
+	{ 15,0,16 },
+	{ 15,0,15 }
+	//位置传过来时需要进行其他两个坐标的取整处理
+};
+
+float trans_point[][3] = {
+	{ 15,0,16 },//x,y,z
+	{ 16,0,16 },
+	{ 16,1,16 },
+	{ 16,2,16}
+};
+
+int raw = 0;
+glm::vec3 arrive = glm::vec3(trans_point[raw][0], trans_point[raw][1], trans_point[raw][2]);  //待运送物体到达的指定点
+glm::vec3 model_pos_heart = glm::vec3(15.0f, 0.0f, 15.0f);  //四个定位器的中心点?????
+glm::vec3 move_direction = arrive - model_pos_heart;
+
+glm::vec3 arrive_copy = arrive;
+float scale_proportion = 0.1f;
+
+bool have_arrive = false;
+bool have_one_loop = false;
+
+int groups_of_points = 4;
+int count_1=0;
+
+bool change_num=false;
+
+int main()
+{
+
+
+
+	// glfw: initialize and configure
+	// ------------------------------
+	glfwInit();
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+
+#ifdef __APPLE__
+	glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE); // uncomment this statement to fix compilation on OS X
+#endif
+
+														 // glfw window creation
+														 // --------------------
+	GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "LearnOpenGL", NULL, NULL);
+	if (window == NULL)
+	{
+		std::cout << "Failed to create GLFW window" << std::endl;
+		glfwTerminate();
+		return -1;
+	}
+	glfwMakeContextCurrent(window);
+	glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
+	//-------------------------------
+
+
+	glfwSetCursorPosCallback(window, mouse_callback);
+
+
+	//----------------------------
+
+
+	glfwSetScrollCallback(window, scroll_callback);
+
+	// tell GLFW to capture our mouse
+	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+
+	//键盘捕捉
+	glfwSetKeyCallback(window, key_callback);
+
+	// glad: load all OpenGL function pointers
+	// ---------------------------------------
+	if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
+	{
+		std::cout << "Failed to initialize GLAD" << std::endl;
+		return -1;
+	}
+
+	// configure global opengl state
+	// -----------------------------
+	glEnable(GL_DEPTH_TEST);
+
+	// build and compile shaders
+	// -------------------------
+	Shader ourShader("1.model_loading.vs", "1.model_loading.fs");
+	// load models
+	// -----------
+	Model ourModel("D:/5-VScode/test_16/resources/objects/dingweiqi/dizuo.obj");
+	Model ourModel_1("D:/5-VScode/test_16/resources/objects/dingweiqi/x_1.obj");
+	Model ourModel_2("D:/5-VScode/test_16/resources/objects/dingweiqi/y_1.obj");
+	Model ourModel_3("D:/5-VScode/test_16/resources/objects/dingweiqi/z_1.obj");
+
+	Model ourModel_4("D:/5-VScode/test_16/resources/objects/dingweiqi/dizuo.obj");
+	Model ourModel_5("D:/5-VScode/test_16/resources/objects/dingweiqi/x_1.obj");
+	Model ourModel_6("D:/5-VScode/test_16/resources/objects/dingweiqi/y_1.obj");
+	Model ourModel_7("D:/5-VScode/test_16/resources/objects/dingweiqi/z_1.obj");
+
+	Model ourModel_8("D:/5-VScode/test_16/resources/objects/dingweiqi/dizuo.obj");
+	Model ourModel_9("D:/5-VScode/test_16/resources/objects/dingweiqi/x_1.obj");
+	Model ourModel_10("D:/5-VScode/test_16/resources/objects/dingweiqi/y_1.obj");
+	Model ourModel_11("D:/5-VScode/test_16/resources/objects/dingweiqi/z_1.obj");
+
+	Model ourModel_12("D:/5-VScode/test_16/resources/objects/dingweiqi/dizuo.obj");
+	Model ourModel_13("D:/5-VScode/test_16/resources/objects/dingweiqi/x_1.obj");
+	Model ourModel_14("D:/5-VScode/test_16/resources/objects/dingweiqi/y_1.obj");
+	Model ourModel_15("D:/5-VScode/test_16/resources/objects/dingweiqi/z_1.obj");
+
+	Model ourModel_16("D:/5-VScode/test_16/resources/objects/dingweiqi/dizuo.obj");
+	Model ourModel_17("D:/5-VScode/test_16/resources/objects/dingweiqi/x_1.obj");
+	Model ourModel_18("D:/5-VScode/test_16/resources/objects/dingweiqi/y_1.obj");
+	Model ourModel_19("D:/5-VScode/test_16/resources/objects/dingweiqi/z_1.obj");
+
+	Model ourModel_20("D:/5-VScode/test_16/resources/objects/dingweiqi/dizuo.obj");
+	Model ourModel_21("D:/5-VScode/test_16/resources/objects/dingweiqi/x_1.obj");
+	Model ourModel_22("D:/5-VScode/test_16/resources/objects/dingweiqi/y_1.obj");
+	Model ourModel_23("D:/5-VScode/test_16/resources/objects/dingweiqi/z_1.obj");
+
+	//Model ourModel_4(FileSystem::getPath("resources/objects/dingweiqi/dizuo.obj"));
+
+	// draw in wireframe
+	//glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+
+
+	// render loop
+	// -----------
+	while (!glfwWindowShouldClose(window))
+	{
+		// per-frame time logic
+		// --------------------
+		float currentFrame = glfwGetTime();
+		deltaTime = currentFrame - lastFrame;
+		lastFrame = currentFrame;
+
+		velocity = movespeed * deltaTime;
+
+
+		// render
+		// ------
+		glClearColor(0.3f, 0.5f, 1.0f, 1.0f);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+		// don't forget to enable shader before setting uniforms
+		ourShader.use();
+
+		//
+		//给定光照
+		ourShader.setVec3("viewPos", camera.Position);
+		ourShader.setFloat("shininess", 64.0f);
+		ourShader.setVec3("light.position", glm::vec3(0.0f, 5.0f, 0.0f));
+		ourShader.setVec3("light.ambient", 0.5f, 0.5f, 0.5f);
+		ourShader.setVec3("light.diffuse", 0.8f, 0.8f, 0.8f);
+		ourShader.setVec3("light.specular", 1.0f, 1.0f, 1.0f);
+		ourShader.setFloat("light.constant", 1.0f);
+		ourShader.setFloat("light.linear", 0.045f);
+		ourShader.setFloat("light.quadratic", 0.0075f);
+
+		GLfloat sun_light_position[] = { 10.0f, 10.0f, 10.0f, 1.0f }; //光源的位置在世界坐标系圆心，齐次坐标形式
+		GLfloat sun_light_ambient[] = { 1.0f, 1.0f, 1.0f, 1.0f }; //RGBA模式的环境光，为0
+		GLfloat sun_light_diffuse[] = { 1.0f, 1.0f, 1.0f, 1.0f }; //RGBA模式的漫反射光，全白光
+		GLfloat sun_light_specular[] = { 1.0f, 1.0f, 1.0f, 1.0f };  //RGBA模式下的镜面光 ，全白光
+		glLightfv(GL_LIGHT0, GL_POSITION, sun_light_position);
+		glLightfv(GL_LIGHT0, GL_AMBIENT, sun_light_ambient);
+		glLightfv(GL_LIGHT0, GL_DIFFUSE, sun_light_diffuse);
+		glLightfv(GL_LIGHT0, GL_SPECULAR, sun_light_specular);
+
+		//开启灯光
+		glEnable(GL_LIGHT0);
+		glEnable(GL_LIGHTING);
+		glEnable(GL_DEPTH_TEST);
+
+		//世界空间变换矩阵初始化
+		glm::mat4 model = glm::mat4(1.0f);
+		glm::mat4 model_1 = glm::mat4(1.0f);
+		glm::mat4 model_2 = glm::mat4(1.0f);
+		glm::mat4 model_3 = glm::mat4(1.0f);
+	
+		glm::mat4 model_4 = glm::mat4(1.0f);
+		glm::mat4 model_5 = glm::mat4(1.0f);
+		glm::mat4 model_6 = glm::mat4(1.0f);
+		glm::mat4 model_7 = glm::mat4(1.0f);
+
+		glm::mat4 model_8 = glm::mat4(1.0f);
+		glm::mat4 model_9 = glm::mat4(1.0f);
+		glm::mat4 model_10 = glm::mat4(1.0f);
+		glm::mat4 model_11 = glm::mat4(1.0f);
+
+		glm::mat4 model_12 = glm::mat4(1.0f);
+		glm::mat4 model_13 = glm::mat4(1.0f);
+		glm::mat4 model_14 = glm::mat4(1.0f);
+		glm::mat4 model_15 = glm::mat4(1.0f);
+	
+		glm::mat4 model_16 = glm::mat4(1.0f);
+		glm::mat4 model_17 = glm::mat4(1.0f);
+		glm::mat4 model_18 = glm::mat4(1.0f);
+		glm::mat4 model_19 = glm::mat4(1.0f);
+
+		glm::mat4 model_20 = glm::mat4(1.0f);
+		glm::mat4 model_21 = glm::mat4(1.0f);
+		glm::mat4 model_22 = glm::mat4(1.0f);
+		glm::mat4 model_23 = glm::mat4(1.0f);
+
+
+		//视角锁定
+		jude_viewlock();
+
+
+
+
+
+		// view/projection transformations  观察空间   +视角锁定
+		//------------------------------------------------------
+		//视角锁定 Version2.0
+		/*if (viewlocker == 1.0)
+		{
+		glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
+		glm::mat4 view = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
+		ourShader.setMat4("projection", projection);
+		ourShader.setMat4("view", view);//view 观察矩阵
+		}
+		if (viewlocker==0.0)
+		{
+		glm::vec3 cameraPos_lock = glm::vec3(30.0f, 30.0f, 30.0f);  //摄像机位置
+		glm::vec3 cameraFront_lock = glm::vec3(-1.0f, -1.0f, -1.0f);//摄像机视线方向
+		glm::vec3 cameraUp_lock = glm::vec3(0.0f, 1.0f, 0.0f);
+		glm::mat4 projection_lock = glm::perspective(glm::radians(camera.Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
+		glm::mat4 view_lock = glm::lookAt(cameraPos_lock, cameraPos_lock + cameraFront_lock, cameraUp_lock);
+		ourShader.setMat4("projection", projection_lock);
+		ourShader.setMat4("view", view_lock);//view 观察矩阵
+		}*/
+
+		glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
+		glm::mat4 view = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
+		ourShader.setMat4("projection", projection);
+		ourShader.setMat4("view", view);//view 观察矩阵
+
+	    // render the loaded model
+
+	    //------------------------------------------------
+		
+		//小车按键控制随意移动
+		judge_move();  //执行前进，计算更新位置向量model_pos_
+					   //judge_turn();  //执行旋转，计算更新位置向量model_pos_
+
+	    //---------------------------------------------------------------------
+	    //定位器运送物体到指定点
+
+		if (have_arrive)    //--->到达了第4个点之后raw又进来了，此时raw=3,第四个点已走完
+		{
+
+			if (raw == groups_of_points - 1)     //更新目标位置点数组
+			{
+				//*****走完一个数组再读一遍传过来的位置数组
+				for (int i = 0; i <= 3; i++)
+				{
+					trans_point[i][0] = point[i].x;
+					trans_point[i][1] = point[i].y;
+					trans_point[i][2] = point[i].z;
+				}
+				have_one_loop = true;
+
+				raw = 0;
+				have_arrive = false;
+				arrive_copy = arrive;
+				arrive = glm::vec3(trans_point[0][0], trans_point[0][1], trans_point[0][2]);
+				move_direction = arrive - arrive_copy;
+
+			}
+
+			if (have_one_loop == false && raw < groups_of_points - 1)  //行走直至走完一个数组
+			{
+				raw++;
+				arrive_copy = arrive;
+				arrive = glm::vec3(trans_point[raw][0], trans_point[raw][1], trans_point[raw][2]);
+				have_arrive = false;
+				move_direction= arrive - arrive_copy;
+
+				int k = 0; k += 1;
+			}
+
+		}
+
+
+
+
+
+		if (!have_arrive)
+		{
+			do_movement();
+			have_one_loop = false;//走完一圈的标志置位
+
+		}
+
+
+		//---------------------------------------------
+		//定位器底座
+		model = glm::translate(model, model_pos); //定义模型每个循环出现的位置
+		model = glm::scale(model, glm::vec3(scale_proportion, scale_proportion, scale_proportion));	// it's a bit too big for our scene, so scale it down
+		ourShader.setMat4("model", model);
+		ourModel.Draw(ourShader);
+
+		//X_1
+		// render the loaded model
+		model_1 = glm::translate(model_1, model_pos_1); //定义模型每个循环出现的位置
+		model_1 = glm::scale(model_1, glm::vec3(scale_proportion, scale_proportion, scale_proportion));	// it's a bit too big for our scene, so scale it down
+		ourShader.setMat4("model", model_1);
+		ourModel_1.Draw(ourShader);
+
+
+		// Y_1
+		// render the loaded model
+		model_2 = glm::translate(model_2, model_pos_2); //定义模型每个循环出现的位置
+		model_2 = glm::scale(model_2, glm::vec3(scale_proportion, scale_proportion, scale_proportion));	// it's a bit too big for our scene, so scale it down
+		ourShader.setMat4("model", model_2);
+		ourModel_2.Draw(ourShader);
+
+
+		// Z_1
+		// render the loaded model
+		model_3 = glm::translate(model_3, model_pos_3); //定义模型每个循环出现的位置
+		model_3 = glm::scale(model_3, glm::vec3(scale_proportion, scale_proportion, scale_proportion));	// it's a bit too big for our scene, so scale it down
+		ourShader.setMat4("model", model_3);
+		ourModel_3.Draw(ourShader);
+
+		//_________________________________________________________________________________________________________________
+	    //定位器底座
+		model_4 = glm::translate(model_4, model_pos_4); //定义模型每个循环出现的位置
+		model_4 = glm::scale(model_4, glm::vec3(scale_proportion, scale_proportion, scale_proportion));	// it's a bit too big for our scene, so scale it down
+		ourShader.setMat4("model", model_4);
+		ourModel_4.Draw(ourShader);
+
+		//X_1
+		// render the loaded model
+		model_5 = glm::translate(model_5, model_pos_5); //定义模型每个循环出现的位置
+		model_5 = glm::scale(model_5, glm::vec3(scale_proportion, scale_proportion, scale_proportion));	// it's a bit too big for our scene, so scale it down
+		ourShader.setMat4("model", model_5);
+		ourModel_5.Draw(ourShader);
+
+
+		// Y_1
+		// render the loaded model
+		model_6 = glm::translate(model_6, model_pos_6); //定义模型每个循环出现的位置
+		model_6 = glm::scale(model_6, glm::vec3(scale_proportion, scale_proportion, scale_proportion));	// it's a bit too big for our scene, so scale it down
+		ourShader.setMat4("model", model_6);
+		ourModel_6.Draw(ourShader);
+
+
+		// Z_1
+		// render the loaded model
+		model_7 = glm::translate(model_7, model_pos_7); //定义模型每个循环出现的位置
+		model_7 = glm::scale(model_7, glm::vec3(scale_proportion, scale_proportion, scale_proportion));	// it's a bit too big for our scene, so scale it down
+		ourShader.setMat4("model", model_7);
+		ourModel_7.Draw(ourShader);
+
+		//_______________________________________________________________________________________________________
+		//定位器底座
+		model_8 = glm::translate(model_8, model_pos_8); //定义模型每个循环出现的位置
+		model_8 = glm::scale(model_8, glm::vec3(scale_proportion, scale_proportion, scale_proportion));	// it's a bit too big for our scene, so scale it down
+		ourShader.setMat4("model", model_8);
+		ourModel_8.Draw(ourShader);
+
+		//X_1
+		// render the loaded model
+		model_9 = glm::translate(model_9, model_pos_9); //定义模型每个循环出现的位置
+		model_9 = glm::scale(model_9, glm::vec3(scale_proportion, scale_proportion, scale_proportion));	// it's a bit too big for our scene, so scale it down
+		ourShader.setMat4("model", model_9);
+		ourModel_9.Draw(ourShader);
+
+
+		// Y_1
+		// render the loaded model
+		model_10 = glm::translate(model_10, model_pos_10); //定义模型每个循环出现的位置
+		model_10 = glm::scale(model_10, glm::vec3(scale_proportion, scale_proportion, scale_proportion));	// it's a bit too big for our scene, so scale it down
+		ourShader.setMat4("model", model_10);
+		ourModel_10.Draw(ourShader);
+
+
+		// Z_1
+		// render the loaded model
+		model_11 = glm::translate(model_11, model_pos_11); //定义模型每个循环出现的位置
+		model_11 = glm::scale(model_11, glm::vec3(scale_proportion, scale_proportion, scale_proportion));	// it's a bit too big for our scene, so scale it down
+		ourShader.setMat4("model", model_11);
+		ourModel_11.Draw(ourShader);
+
+		//_____________________________________________________________________________________________________________________
+		
+			//定位器底座
+			model_12 = glm::translate(model_12, model_pos_12); //定义模型每个循环出现的位置
+			model_12 = glm::scale(model_12, glm::vec3(scale_proportion, scale_proportion, scale_proportion));	// it's a bit too big for our scene, so scale it down
+			ourShader.setMat4("model", model_12);
+			ourModel_12.Draw(ourShader);
+
+			//X_1
+			// render the loaded model
+			model_13 = glm::translate(model_13, model_pos_13); //定义模型每个循环出现的位置
+			model_13 = glm::scale(model_13, glm::vec3(scale_proportion, scale_proportion, scale_proportion));	// it's a bit too big for our scene, so scale it down
+			ourShader.setMat4("model", model_13);
+			ourModel_13.Draw(ourShader);
+
+
+			// Y_1
+			// render the loaded model
+			model_14 = glm::translate(model_14, model_pos_14); //定义模型每个循环出现的位置
+			model_14 = glm::scale(model_14, glm::vec3(scale_proportion, scale_proportion, scale_proportion));	// it's a bit too big for our scene, so scale it down
+			ourShader.setMat4("model", model_14);
+			ourModel_14.Draw(ourShader);
+
+
+			// Z_1
+			// render the loaded model
+			model_15 = glm::translate(model_15, model_pos_15); //定义模型每个循环出现的位置
+			model_15 = glm::scale(model_15, glm::vec3(scale_proportion, scale_proportion, scale_proportion));	// it's a bit too big for our scene, so scale it down
+			ourShader.setMat4("model", model_15);
+			ourModel_15.Draw(ourShader);
+
+	  //_____________________________________________________________________________________________________________________________
+		
+		
+		if (keys[GLFW_KEY_T])
+		{
+			change_num = true;
+		}
+		if (keys[GLFW_KEY_G])
+		{
+			change_num = false;
+		}
+
+		if (change_num)
+		{
+			//定位器底座
+			model_16 = glm::translate(model_16, model_pos_16); //定义模型每个循环出现的位置
+			model_16 = glm::scale(model_16, glm::vec3(scale_proportion, scale_proportion, scale_proportion));	
+			ourShader.setMat4("model", model_16);
+			ourModel_16.Draw(ourShader);
+
+			//X_1
+			// render the loaded model
+			model_17 = glm::translate(model_17, model_pos_17); //定义模型每个循环出现的位置
+			model_17 = glm::scale(model_17, glm::vec3(scale_proportion, scale_proportion, scale_proportion));	
+			ourShader.setMat4("model", model_17);
+			ourModel_17.Draw(ourShader);
+
+
+			// Y_1
+			// render the loaded model
+			model_18 = glm::translate(model_18, model_pos_18); //定义模型每个循环出现的位置
+			model_18 = glm::scale(model_18, glm::vec3(scale_proportion, scale_proportion, scale_proportion));	
+			ourShader.setMat4("model", model_18);
+			ourModel_18.Draw(ourShader);
+
+
+			// Z_1
+			// render the loaded model
+			model_19 = glm::translate(model_19, model_pos_19); //定义模型每个循环出现的位置
+			model_19 = glm::scale(model_19, glm::vec3(scale_proportion, scale_proportion, scale_proportion));	
+			ourShader.setMat4("model", model_19);
+			ourModel_19.Draw(ourShader);
+
+			//__________________________________________________________________________________________________________________________
+			//定位器底座
+			model_20 = glm::translate(model_20, model_pos_20); //定义模型每个循环出现的位置
+			model_20 = glm::scale(model_20, glm::vec3(scale_proportion, scale_proportion, scale_proportion));	
+			ourShader.setMat4("model", model_20);
+			ourModel_20.Draw(ourShader);
+
+			//X_1
+			// render the loaded model
+			model_21 = glm::translate(model_21, model_pos_21); //定义模型每个循环出现的位置
+			model_21 = glm::scale(model_21, glm::vec3(scale_proportion, scale_proportion, scale_proportion));	
+			ourShader.setMat4("model", model_21);
+			ourModel_21.Draw(ourShader);
+
+
+			// Y_1
+			// render the loaded model
+			model_22 = glm::translate(model_22, model_pos_22); //定义模型每个循环出现的位置
+			model_22 = glm::scale(model_22, glm::vec3(scale_proportion, scale_proportion, scale_proportion));	
+			ourShader.setMat4("model", model_22);
+			ourModel_22.Draw(ourShader);
+
+
+			// Z_1
+			// render the loaded model
+			model_23 = glm::translate(model_23, model_pos_23); //定义模型每个循环出现的位置
+			model_23 = glm::scale(model_23, glm::vec3(scale_proportion, scale_proportion, scale_proportion));	
+			ourShader.setMat4("model", model_23);
+			ourModel_23.Draw(ourShader);
+
+		}
+
+		//--------------------------------------------------------------------------------------------------------------------
+
+		// 按键input
+		// -----------------------------------------------------------------------
+
+		processInput(window);
+
+		// glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
+		// -------------------------------------------------------------------------------
+
+		glfwSwapBuffers(window);
+		glfwPollEvents();
+	}
+
+	// glfw: terminate, clearing all previously allocated GLFW resources.
+	// ------------------------------------------------------------------
+	glfwTerminate();
+	return 0;
+}
+
+// process all input: query GLFW whether relevant keys are pressed/released this frame and react accordingly
+// ---------------------------------------------------------------------------------------------------------
+
+void judge_move()
+{
+
+	//前进后退计算更新位置向量
+	if (keys[GLFW_KEY_A])
+	{
+		model_pos_1 += velocity*x_direction_unchange;
+		model_pos_2 += velocity*x_direction_unchange;
+		model_pos_3 += velocity*x_direction_unchange;
+
+		model_pos_5 += velocity*x_direction_unchange;
+		model_pos_6 += velocity*x_direction_unchange;
+		model_pos_7 += velocity*x_direction_unchange;
+
+		model_pos_9 += velocity*x_direction_unchange;
+		model_pos_10 += velocity*x_direction_unchange;
+		model_pos_11 += velocity*x_direction_unchange;
+
+		model_pos_13 += velocity*x_direction_unchange;
+		model_pos_14 += velocity*x_direction_unchange;
+		model_pos_15 += velocity*x_direction_unchange;
+	}
+	if (keys[GLFW_KEY_D])
+	{
+		model_pos_1 -= velocity*x_direction_unchange;
+		model_pos_2 -= velocity*x_direction_unchange;
+		model_pos_3 -= velocity*x_direction_unchange;
+
+		model_pos_5 -= velocity*x_direction_unchange;
+		model_pos_6 -= velocity*x_direction_unchange;
+		model_pos_7 -= velocity*x_direction_unchange;
+
+		model_pos_9 -= velocity*x_direction_unchange;
+		model_pos_10 -= velocity*x_direction_unchange;
+		model_pos_11 -= velocity*x_direction_unchange;
+
+		model_pos_13 -= velocity*x_direction_unchange;
+		model_pos_14 -= velocity*x_direction_unchange;
+		model_pos_15 -= velocity*x_direction_unchange;
+	}
+
+	if (keys[GLFW_KEY_W])
+	{
+		model_pos_2 += velocity*z_direction_unchange;
+		model_pos_3 += velocity*z_direction_unchange;
+
+		model_pos_6 += velocity*z_direction_unchange;
+		model_pos_7 += velocity*z_direction_unchange;
+
+		model_pos_10 += velocity*z_direction_unchange;
+		model_pos_11 += velocity*z_direction_unchange;
+
+		model_pos_14 += velocity*z_direction_unchange;
+		model_pos_15 += velocity*z_direction_unchange;
+	}
+	if (keys[GLFW_KEY_S])
+	{
+		model_pos_2 -= velocity*z_direction_unchange;
+		model_pos_3 -= velocity*z_direction_unchange;
+
+		model_pos_6 -= velocity*z_direction_unchange;
+		model_pos_7 -= velocity*z_direction_unchange;
+
+		model_pos_10 -= velocity*z_direction_unchange;
+		model_pos_11 -= velocity*z_direction_unchange;
+
+		model_pos_14 -= velocity*z_direction_unchange;
+		model_pos_15 -= velocity*z_direction_unchange;
+	}
+
+	if (keys[GLFW_KEY_R])
+	{
+		model_pos_3 += velocity*y_direction_unchange;
+		model_pos_7 += velocity*y_direction_unchange;
+		model_pos_11 += velocity*y_direction_unchange;
+		model_pos_15 += velocity*y_direction_unchange;
+	}
+	if (keys[GLFW_KEY_F])
+	{
+		model_pos_3 -= velocity*y_direction_unchange;
+		model_pos_7 -= velocity*y_direction_unchange;
+		model_pos_11 -= velocity*y_direction_unchange;
+		model_pos_15 -= velocity*y_direction_unchange;
+	}
+
+}
+
+void do_movement()
+{
+	if (!have_arrive)
+	{   
+		if ( move_direction.z == 0 && move_direction.y == 0)
+		{
+			model_pos_heart = model_pos_heart + 1 / 400.0f*move_direction;
+			model_pos_1 = model_pos_1 + 1 / 400.0f*move_direction;
+			model_pos_2 = model_pos_2 + 1 / 400.0f*move_direction;
+			model_pos_3 = model_pos_3 + 1 / 400.0f*move_direction;
+
+			model_pos_5 = model_pos_5 + 1 / 400.0f*move_direction;
+			model_pos_6 = model_pos_6 + 1 / 400.0f*move_direction;
+			model_pos_7 = model_pos_7 + 1 / 400.0f*move_direction;
+
+			model_pos_9 = model_pos_9 + 1 / 400.0f*move_direction;
+			model_pos_10 = model_pos_10 + 1 / 400.0f*move_direction;
+			model_pos_11 = model_pos_11 + 1 / 400.0f*move_direction;
+
+			model_pos_13 = model_pos_13 + 1 / 400.0f*move_direction;
+			model_pos_14 = model_pos_14 + 1 / 400.0f*move_direction;
+			model_pos_15 = model_pos_15 + 1 / 400.0f*move_direction;
+
+			model_pos_17 = model_pos_17 + 1 / 400.0f*move_direction;
+			model_pos_18 = model_pos_18 + 1 / 400.0f*move_direction;
+			model_pos_19 = model_pos_19 + 1 / 400.0f*move_direction;
+
+			model_pos_21 = model_pos_21 + 1 / 400.0f*move_direction;
+			model_pos_22 = model_pos_22 + 1 / 400.0f*move_direction;
+			model_pos_23 = model_pos_23 + 1 / 400.0f*move_direction;
+
+			count_1++;
+
+			if (count_1 >= (400 - 1))
+			{
+
+				model_pos_heart = arrive;
+				have_arrive = true;
+				count_1 = 0;
+			}
+		}
+
+
+		if ( move_direction.x == 0 && move_direction.y == 0)
+		{
+			model_pos_heart = model_pos_heart + 1 / 400.0f*move_direction;
+			model_pos_2 = model_pos_2 + 1 / 400.0f*move_direction;
+			model_pos_3 = model_pos_3 + 1 / 400.0f*move_direction;
+
+			model_pos_6 = model_pos_6 + 1 / 400.0f*move_direction;
+			model_pos_7 = model_pos_7 + 1 / 400.0f*move_direction;
+
+			model_pos_10 = model_pos_10 + 1 / 400.0f*move_direction;
+			model_pos_11 = model_pos_11 + 1 / 400.0f*move_direction;
+
+			model_pos_14 = model_pos_14 + 1 / 400.0f*move_direction;
+			model_pos_15 = model_pos_15 + 1 / 400.0f*move_direction;
+
+			model_pos_18 = model_pos_18 + 1 / 400.0f*move_direction;
+			model_pos_19 = model_pos_19 + 1 / 400.0f*move_direction;
+
+			model_pos_22 = model_pos_22 + 1 / 400.0f*move_direction;
+			model_pos_23 = model_pos_23 + 1 / 400.0f*move_direction;
+
+			count_1++;
+
+			if (count_1 >= (400 - 1))
+			{
+
+				model_pos_heart = arrive;
+				have_arrive = true;
+				count_1 = 0;
+			}
+		}
+
+		if (move_direction.x == 0 && move_direction.z == 0)
+		{
+			model_pos_heart = model_pos_heart + 1 / 400.0f*move_direction;
+			model_pos_3 = model_pos_3 + 1 / 400.0f*move_direction;
+			model_pos_7 = model_pos_7 + 1 / 400.0f*move_direction;
+			model_pos_11 = model_pos_11 + 1 / 400.0f*move_direction;
+			model_pos_15 = model_pos_15 + 1 / 400.0f*move_direction;
+			model_pos_19 = model_pos_19 + 1 / 400.0f*move_direction;
+			model_pos_23 = model_pos_23 + 1 / 400.0f*move_direction;
+
+			count_1++;
+
+			if (count_1 >= (400 - 1))
+			{
+
+				model_pos_heart = arrive;
+				have_arrive = true;
+				count_1 = 0;
+			}
+
+		}
+
+
+
+
+
+
+	}
+
+}
+
+
+
+
+void processInput(GLFWwindow* window)
+{
+	//float  angle = 0.0f;
+
+	glm::vec3 front = glm::vec3(0.0f, 0.0f, -1.0f);
+	float cameraSpeed = 2.5f * deltaTime;
+	//float cameraSpeed = 0.05f; // adjust accordingly
+	if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS)
+		cameraPos += cameraSpeed * cameraFront;
+	if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS)
+		cameraPos -= cameraSpeed * cameraFront;
+	if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS)
+		cameraPos -= glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
+	if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS)
+		cameraPos += glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
+
+	if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
+		glfwSetWindowShouldClose(window, true);
+}
+
+
+
+
+
+
+// glfw: whenever the window size changed (by OS or user resize) this callback function executes
+// ---------------------------------------------------------------------------------------------
+void framebuffer_size_callback(GLFWwindow* window, int width, int height)
+{
+	// make sure the viewport matches the new window dimensions; note that width and 
+	// height will be significantly larger than specified on retina displays.
+	glViewport(0, 0, width, height);
+}
+
+
+
+// glfw: whenever the mouse scroll wheel scrolls, this callback is called
+// ----------------------------------------------------------------------
+void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
+{
+	if (fov >= 1.0f && fov <= 45.0f)
+		fov -= yoffset;
+	if (fov <= 1.0f)
+		fov = 1.0f;
+	if (fov >= 45.0f)
+		fov = 45.0f;
+}
+
+void key_callback(GLFWwindow* window, int key, int scancode, int action, int mode)
+{
+	if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
+		glfwSetWindowShouldClose(window, GL_TRUE);
+	if (key >= 0 && key < 1024)
+	{
+		//设置按下/释放键为true或false
+		if (action == GLFW_PRESS)
+			keys[key] = true;
+		else if (action == GLFW_RELEASE)
+			keys[key] = false;
+	}
+
+}
+
+// glfw: whenever the mouse moves, this callback is called
+// -------------------------------------------------------
+void mouse_callback(GLFWwindow* window, double xpos, double ypos)
+{
+
+
+	if (firstMouse)
+	{
+		lastX = xpos;
+		lastY = ypos;
+		firstMouse = false;
+	}
+
+	float xoffset = xpos - lastX;
+	float yoffset = lastY - ypos;
+	lastX = xpos;
+	lastY = ypos;
+
+	float sensitivity = 0.1;
+	xoffset *= sensitivity;
+	yoffset *= sensitivity;
+
+	yaw += xoffset;
+	pitch += yoffset;
+
+	if (pitch > 89.0f)
+		pitch = 89.0f;
+	if (pitch < -89.0f)
+		pitch = -89.0f;
+
+	glm::vec3 front;
+	front.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
+	front.y = sin(glm::radians(pitch));
+	front.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
+
+	//--------------------------------------------
+	//视角锁定 Version1.0
+	if (viewlocker == 1.0)
+	{
+		cameraFront = glm::normalize(front);
+		cameraFront_now = cameraFront;
+	}
+	if (viewlocker == 0.0)
+	{
+		cameraFront = cameraFront_now;//摄像机视线方向
+									  //cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
+	}
+
+}
+
+void jude_viewlock()
+{
+	if (keys[GLFW_KEY_X])//X 视角解锁
+	{
+		viewlocker = 1.0;
+	}
+	if (keys[GLFW_KEY_C])//C  视角锁定
+	{
+		viewlocker = 0.0;
+	}
+}
